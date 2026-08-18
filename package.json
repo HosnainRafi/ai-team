@@ -1,0 +1,40 @@
+{
+  "name": "ai-team",
+  "version": "1.0.0",
+  "description": "Your AI software company. A CLI that spawns AI agents (Planner, Designer, Developer, Tester, Reviewer, BugFixer) to build software from a single idea. Model-agnostic: works with GPT, Codex, GLM, Gemini, DeepSeek, Qwen, Claude and local models.",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "ai-team": "./bin/ai-team.js"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "multi-agent",
+    "coding",
+    "chatdev",
+    "llm",
+    "code-generation",
+    "gpt",
+    "glm",
+    "gemini",
+    "codex"
+  ],
+  "author": "Hosnain Rafi",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HosnainRafi/ai-team.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HosnainRafi/ai-team/issues"
+  },
+  "homepage": "https://github.com/HosnainRafi/ai-team#readme"
+}
