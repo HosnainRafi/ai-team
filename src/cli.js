@@ -1,8 +1,9 @@
-// cli.js — command-line interface for ai-team
+// cli.js — command-line interface for ai-team-builder
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, basename } from "node:path";
-import { resolveProvider, printProviders, PRESETS, loadProjectConfig } from "./config.js";
+import { resolveProvider, resolveProviderWithKey, printProviders, PRESETS, loadProjectConfig } from "./config.js";
+import { obtainFreeGeminiKey } from "./free-key.js";
 import { TeamOrchestrator } from "./orchestrator.js";
 import { sayPlain, say } from "./log.js";
 import { ROLES } from "./roles.js";
@@ -19,17 +20,17 @@ function slugify(s) {
 
 function printUsage() {
   console.log(`
-\x1b[1mai-team\x1b[0m — your AI software company in the terminal.
+\x1b[1mai-team-builder\x1b[0m — your AI software company in the terminal.
 
 \x1b[1mUsage:\x1b[0m
-  ai-team build "<idea>"   Build software from an idea (default command)
-  ai-team "<idea>"         Same as build
-  ai-team models           Show provider presets and configured keys
-  ai-team help             Show this help
+  ai-team-builder build "<idea>"   Build software from an idea (default command)
+  ai-team-builder "<idea>"         Same as build
+  ai-team-builder models           Show provider presets and configured keys
+  ai-team-builder help             Show this help
 
 \x1b[1mExamples:\x1b[0m
-  ai-team build "a todo app with dark mode and local storage"
-  ai-team build "snake game with score tracking" --name snake-game
+  ai-team-builder build "a todo app with dark mode and local storage"
+  ai-team-builder build "snake game with score tracking" --name snake-game
 
 \x1b[1mOptions:\x1b[0m
   --name <dir>             Output directory (default: auto-generated from idea)
@@ -37,7 +38,9 @@ function printUsage() {
   --model <model>          Model name, e.g. gpt-5.5, glm-4.7, gemini-2.5-pro
   --planner-model <m>      Use a different model just for planning/review roles
   --max-loops <n>          Max test-fix cycles (default 4)
-  --no-exec                Skip real code execution (ChatDev-style, text only)
+  --free                   Free mode: open Google AI Studio in your browser, log in
+                           with your Google account once, and ai-team uses the free
+                           Gemini tier automatically (key saved for next runs)
   --yes                    Skip interactive confirmations
   --quiet                  Only show final summary
 
@@ -84,32 +87,40 @@ export async function main(argv) {
   }
 
   if (cmd !== "build") {
-    console.error(`Unknown command: ${cmd}\nRun: ai-team help`);
+    console.error(`Unknown command: ${cmd}\nRun: ai-team-builder help`);
     process.exit(1);
   }
 
   const idea = args._.slice(1).join(" ").trim() || args.flags.idea;
   if (!idea) {
     printUsage();
-    throw new Error("Missing idea. Usage: ai-team build \"<your idea>\"");
+    throw new Error("Missing idea. Usage: ai-team-builder build \"<your idea>\"");
+  }
+
+  let freeKey = null;
+  if (args.flags.free) {
+    freeKey = await obtainFreeGeminiKey(!args.flags.quiet);
+    if (!freeKey) {
+      throw new Error("No free API key was provided — aborting. Run with --free again or set an API key.");
+    }
   }
 
   const projectCfg = loadProjectConfig(process.cwd());
-  const provider = resolveProvider({ ...projectCfg, provider: args.flags.provider });
+  const provider = resolveProviderWithKey(freeKey, { ...projectCfg, provider: args.flags.provider });
 
-  if (!provider.apiKey) {
+  if (!provider.apiKey && provider.name !== "builtin") {
     throw new Error(
       `No API key found for provider "${provider.name}".\n` +
         `Set one of: OPENAI_API_KEY, GLM_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, QWEN_API_KEY, DEEPSEEK_API_KEY, ANTHROPIC_API_KEY\n` +
-        `Or: AI_TEAM_API_KEY + AI_TEAM_BASE_URL for any OpenAI-compatible endpoint.\n\nSee: ai-team models`
+        `Or: AI_TEAM_API_KEY + AI_TEAM_BASE_URL for any OpenAI-compatible endpoint.\n\nSee: ai-team-builder models`
     );
   }
 
-  const model = args.flags.model || process.env.AI_TEAM_MODEL || DEFAULT_MODEL;
+  const model = provider.builtinModel || args.flags.model || process.env.AI_TEAM_MODEL || DEFAULT_MODEL;
   const outName = args.flags.name || slugify(idea.split(".").shift());
   const workDir = join(process.cwd(), outName);
 
-  sayPlain("\x1b[1m", `ai-team — building "${idea}" → ${workDir}`);
+  sayPlain("\x1b[1m", `ai-team-builder — building "${idea}" → ${workDir}`);
   sayPlain("\x1b[90m", `Provider: ${provider.label} (${provider.baseUrl}) · Model: ${model}`);
 
   if (!existsSync(workDir)) mkdirSync(workDir, { recursive: true });
